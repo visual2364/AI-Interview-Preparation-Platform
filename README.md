@@ -100,7 +100,21 @@ GOOGLE_GENAI_API_KEY=your_google_genai_api_key
 
 ## 📸 Screenshots
 
-> Screenshots will be added soon.
+### 🔐 Login Page
+
+![Login](login.png)
+
+---
+
+### 📝 Register Page
+
+![Register](register.png)
+
+---
+
+### 📊 Dashboard
+
+![Dashboard](dashboard.png)
 
 ---
 
