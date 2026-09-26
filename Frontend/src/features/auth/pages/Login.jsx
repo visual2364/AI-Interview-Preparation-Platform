@@ -10,6 +10,7 @@ const Login = () => {
 
     const [ email, setEmail ] = useState("")
     const [ password, setPassword ] = useState("")
+    const [ error, setError ] = useState("")
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -17,6 +18,8 @@ const Login = () => {
 
         if (data?.user) {
             navigate('/')
+        } else {
+            setError(data?.message || "Unable to log in.")
         }
     }
 
@@ -30,6 +33,7 @@ const Login = () => {
             <div className="form-container">
                 <h1>Login</h1>
                 <form onSubmit={handleSubmit}>
+                    {error && <p className='form-error' role='alert'>{error}</p>}
                     <div className="input-group">
                         <label htmlFor="email">Email</label>
                         <input

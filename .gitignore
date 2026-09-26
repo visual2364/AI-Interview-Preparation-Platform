@@ -1,3 +1,9 @@
 Backend/.env
 Backend/node_modules
 Frontend/node_modules
+Frontend/.env
+Frontend/.env.*
+!Frontend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example

@@ -9,19 +9,45 @@ const interviewReportModel = require("../models/interviewReport.model")
  * @description Controller to generate interview report based on user self description, resume and job description.
  */
 async function generateInterViewReportController(req, res) {
+    const selfDescription = typeof req.body.selfDescription === "string" ? req.body.selfDescription.trim() : ""
+    const jobDescription = typeof req.body.jobDescription === "string" ? req.body.jobDescription.trim() : ""
 
-    const resumeContent = await (new pdfParse.PDFParse(Uint8Array.from(req.file.buffer))).getText()
-    const { selfDescription, jobDescription } = req.body
+    if (!jobDescription || jobDescription.length > 5000) {
+        return res.status(400).json({ message: "A job description of 1 to 5000 characters is required." })
+    }
+    if (!selfDescription && !req.file) {
+        return res.status(400).json({ message: "Upload a PDF resume or provide a self-description." })
+    }
+    if (selfDescription.length > 5000) {
+        return res.status(400).json({ message: "Self-description must be 5000 characters or fewer." })
+    }
+
+    let resume = ""
+    if (req.file) {
+        if (req.file.buffer.subarray(0, 5).toString() !== "%PDF-") {
+            return res.status(400).json({ message: "The uploaded file is not a valid PDF." })
+        }
+
+        const parser = new pdfParse.PDFParse({ data: Uint8Array.from(req.file.buffer) })
+        try {
+            const parsed = await parser.getText()
+            resume = parsed.text.trim()
+        } catch {
+            return res.status(400).json({ message: "The uploaded PDF could not be read." })
+        } finally {
+            await parser.destroy()
+        }
+    }
 
     const interViewReportByAi = await generateInterviewReport({
-        resume: resumeContent.text,
+        resume,
         selfDescription,
         jobDescription
     })
 
     const interviewReport = await interviewReportModel.create({
         user: req.user.id,
-        resume: resumeContent.text,
+        resume,
         selfDescription,
         jobDescription,
         ...interViewReportByAi
@@ -29,7 +55,11 @@ async function generateInterViewReportController(req, res) {
 
     res.status(201).json({
         message: "Interview report generated successfully.",
-        interviewReport
+        interviewReport: {
+            ...interviewReport.toObject(),
+            resume: undefined,
+            selfDescription: undefined,
+        }
     })
 
 }
@@ -75,7 +105,7 @@ async function getAllInterviewReportsController(req, res) {
 async function generateResumePdfController(req, res) {
     const { interviewReportId } = req.params
 
-    const interviewReport = await interviewReportModel.findById(interviewReportId)
+    const interviewReport = await interviewReportModel.findOne({ _id: interviewReportId, user: req.user.id })
 
     if (!interviewReport) {
         return res.status(404).json({

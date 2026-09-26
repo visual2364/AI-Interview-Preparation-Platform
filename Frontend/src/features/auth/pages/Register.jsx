@@ -8,6 +8,7 @@ const Register = () => {
     const [ username, setUsername ] = useState("")
     const [ email, setEmail ] = useState("")
     const [ password, setPassword ] = useState("")
+    const [ error, setError ] = useState("")
 
     const {loading,handleRegister} = useAuth()
     
@@ -17,6 +18,8 @@ const Register = () => {
 
         if (data?.user) {
             navigate("/")
+        } else {
+            setError(data?.message || "Unable to register.")
         }
     }
 
@@ -30,6 +33,7 @@ const Register = () => {
                 <h1>Register</h1>
 
                 <form onSubmit={handleSubmit}>
+                    {error && <p className='form-error' role='alert'>{error}</p>}
 
                     <div className="input-group">
                         <label htmlFor="username">Username</label>

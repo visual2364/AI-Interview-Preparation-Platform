@@ -11,15 +11,19 @@ const tokenBlacklistModel = require("../models/blacklist.model");
 
 async function registerUserController(req,res){
     const{username,email,password} = req.body
+    const normalizedUsername = typeof username === "string" ? username.trim() : ""
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : ""
 
-    if(!username || !email || !password){
+    if (!normalizedUsername || normalizedUsername.length > 40 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || normalizedEmail.length > 254 ||
+        typeof password !== "string" || password.length < 8 || password.length > 72) {
         return res.status(400).json({
-            message:"please provide username,email and password"
+            message:"Provide a username of 1 to 40 characters, a valid email address, and a password between 8 and 72 characters."
         })
     }
 
     const isUserAlreadyExists = await userModel.findOne({
-        $or:[{username},{email}]
+        $or:[{ username: normalizedUsername },{ email: normalizedEmail }]
 
     })
     if(isUserAlreadyExists){
@@ -31,8 +35,8 @@ async function registerUserController(req,res){
     const hash = await bcrypt.hash(password,10)
 
     const user = await userModel.create({
-        username,
-        email,
+        username: normalizedUsername,
+        email: normalizedEmail,
         password:hash
     })
 
@@ -72,7 +76,11 @@ async function registerUserController(req,res){
 async function loginUserController(req,res){
     const {email,password} = req.body
 
-    const user = await userModel.findOne({ email })
+    if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password) {
+        return res.status(400).json({ message: "Email and password are required." })
+    }
+
+    const user = await userModel.findOne({ email: email.trim().toLowerCase() })
 
     if(!user){
         return res.status(400).json({
@@ -121,7 +129,7 @@ async function loginUserController(req,res){
  */
 
 async function logoutUserController(req,res){
-    const token = req.cookies.token
+    const token = req.cookies?.token
 
     if(token){
         await tokenBlacklistModel.create({token})
@@ -149,6 +157,10 @@ async function logoutUserController(req,res){
  */
 async function getMeController(req,res){
     const user = await userModel.findById(req.user.id)
+
+    if (!user) {
+        return res.status(404).json({ message: "User not found." })
+    }
 
     res.status(200).json({
         message:"User details fetched successfully",

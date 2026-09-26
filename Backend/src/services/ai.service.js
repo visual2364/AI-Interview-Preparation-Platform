@@ -9,7 +9,7 @@ const ai = new GoogleGenAI({
 
 
 const interviewReportSchema = z.object({
-    matchScore: z.number().describe("A score between 0 and 100 indicating how well the candidate's profile matches the job describe"),
+    matchScore: z.number().min(0).max(100).describe("A score between 0 and 100 indicating how well the candidate's profile matches the job describe"),
     technicalQuestions: z.array(z.object({
         question: z.string().describe("The technical question can be asked in the interview"),
         intention: z.string().describe("The intention of interviewer behind asking this question"),
@@ -32,6 +32,35 @@ const interviewReportSchema = z.object({
     title: z.string().describe("The title of the job for which the interview report is generated"),
 })
 
+async function generateJson(prompt, schema) {
+    if (!process.env.GOOGLE_GENAI_API_KEY) {
+        const error = new Error("AI generation is not configured.")
+        error.status = 503
+        throw error
+    }
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: zodToJsonSchema(schema),
+            }
+        })
+
+        if (!response.text) {
+            throw new Error("Gemini returned an empty response.")
+        }
+
+        return schema.parse(JSON.parse(response.text))
+    } catch (cause) {
+        const error = new Error("AI service is unavailable or returned an invalid response.")
+        error.status = cause.name === "SyntaxError" || cause.name === "ZodError" ? 502 : 503
+        throw error
+    }
+}
+
 async function generateInterviewReport({ resume, selfDescription, jobDescription }) {
 
 
@@ -41,39 +70,39 @@ async function generateInterviewReport({ resume, selfDescription, jobDescription
                         Job Description: ${jobDescription}
 `
 
-    const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: zodToJsonSchema(interviewReportSchema),
-        }
-    })
-
-    return JSON.parse(response.text)
-
+    return generateJson(prompt, interviewReportSchema)
 
 }
 
 
 
 async function generatePdfFromHtml(htmlContent) {
-    const browser = await puppeteer.launch()
-    const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" })
+    let browser
+    try {
+        browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"] })
+        const page = await browser.newPage()
+        await page.setJavaScriptEnabled(false)
+        await page.setRequestInterception(true)
+        page.on("request", request => request.abort())
+        await page.setContent(htmlContent, { waitUntil: "domcontentloaded", timeout: 15000 })
 
-    const pdfBuffer = await page.pdf({
-        format: "A4", margin: {
-            top: "20mm",
-            bottom: "20mm",
-            left: "15mm",
-            right: "15mm"
+        return await page.pdf({
+            format: "A4", margin: {
+                top: "20mm",
+                bottom: "20mm",
+                left: "15mm",
+                right: "15mm"
+            }
+        })
+    } catch {
+        const error = new Error("Could not generate the resume PDF.")
+        error.status = 502
+        throw error
+    } finally {
+        if (browser) {
+            await browser.close()
         }
-    })
-
-    await browser.close()
-
-    return pdfBuffer
+    }
 }
 
 async function generateResumePdf({ resume, selfDescription, jobDescription }) {
@@ -95,18 +124,7 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
                         The resume should not be so lengthy, it should ideally be 1-2 pages long when converted to PDF. Focus on quality rather than quantity and make sure to include all the relevant information that can increase the candidate's chances of getting an interview call for the given job description.
                     `
 
-    const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: zodToJsonSchema(resumePdfSchema),
-        }
-    })
-
-
-    const jsonContent = JSON.parse(response.text)
-
+    const jsonContent = await generateJson(prompt, resumePdfSchema)
     const pdfBuffer = await generatePdfFromHtml(jsonContent.html)
 
     return pdfBuffer
