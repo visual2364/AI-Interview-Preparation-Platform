@@ -7,10 +7,10 @@ An AI-powered Interview Preparation Platform built using the MERN Stack and Goog
 ## 🚀 Live Demo
 
 ### 🌐 Frontend
-👉 https://ai-interview-frontend-zcjz.onrender.com
+👉 https://ai-interview-frontend-r0fy.onrender.com
 
 ### ⚙️ Backend API
-👉 https://ai-interview-backend-av5f.onrender.com
+👉 https://ai-interview-backend-hin6.onrender.com
 
 ---
 
@@ -132,7 +132,7 @@ Resume uploads accept PDF files up to 3 MB. The generated resume PDF feature als
 **Vishal Singh**
 
 - GitHub: https://github.com/visual2364
-- Live Demo: https://ai-interview-frontend-zcjz.onrender.com
+- Live Demo: https://ai-interview-frontend-r0fy.onrender.com
 
 ---
 
